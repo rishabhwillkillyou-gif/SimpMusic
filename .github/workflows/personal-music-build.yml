@@ -1,4 +1,4 @@
-name: Personal Music Debug APK
+name: RishiFy Debug APK
 
 on:
   workflow_dispatch:
@@ -21,6 +21,23 @@ jobs:
           distribution: microsoft
           cache: gradle
 
+      - name: Apply RishiFy branding assets
+        shell: bash
+        run: |
+          base64 -d branding/rishify_icon.b64 > /tmp/rishify_icon.png
+
+          cp /tmp/rishify_icon.png androidApp/src/main/res/drawable/app_icon.png
+          cp /tmp/rishify_icon.png composeApp/src/commonMain/composeResources/drawable/app_icon.png
+          cp /tmp/rishify_icon.png composeApp/src/commonMain/composeResources/drawable/circle_app_icon.png
+
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            dir="androidApp/src/main/res/mipmap-$density"
+            rm -f "$dir/ic_launcher.webp" "$dir/ic_launcher_round.webp" "$dir/ic_launcher_foreground.webp"
+            cp /tmp/rishify_icon.png "$dir/ic_launcher.png"
+            cp /tmp/rishify_icon.png "$dir/ic_launcher_round.png"
+            cp /tmp/rishify_icon.png "$dir/ic_launcher_foreground.png"
+          done
+
       - name: Configure personal build
         shell: bash
         run: |
@@ -37,9 +54,29 @@ jobs:
       - name: Build installable debug APK
         run: ./gradlew androidApp:assembleDebug
 
-      - name: Upload debug APK
+      - name: Compare signer with installed v0.2 build
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -L -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/10698626195/zip" \
+            -o /tmp/v02.zip
+          mkdir -p /tmp/v02
+          unzip -q /tmp/v02.zip -d /tmp/v02
+          OLD_APK="$(find /tmp/v02 -name '*arm64-v8a-debug.apk' | head -1)"
+          NEW_APK="$(find androidApp/build/outputs/apk/debug -name '*arm64-v8a-debug.apk' | head -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)"
+          echo "=== v0.2 signer ==="
+          "$APKSIGNER" verify --print-certs "$OLD_APK" | grep 'Signer #1 certificate SHA-256 digest'
+          echo "=== RishiFy v0.3 signer ==="
+          "$APKSIGNER" verify --print-certs "$NEW_APK" | grep 'Signer #1 certificate SHA-256 digest'
+
+      - name: Upload RishiFy APKs
         uses: actions/upload-artifact@v4
         with:
-          name: personal-music-debug-apk
+          name: rishify-v0.3-debug-apk
           path: androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
