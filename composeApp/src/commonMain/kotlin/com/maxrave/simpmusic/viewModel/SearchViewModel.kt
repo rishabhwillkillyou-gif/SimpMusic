@@ -294,6 +294,12 @@ class SearchViewModel(
             job6.join()
             job7.join()
 
+            // Standard-YouTube fallback can surface the same video through both the song and
+            // video searches. Keep the richer song row and remove duplicate video rows before
+            // composing the All tab.
+            val songVideoIds = song.asSequence().map { it.videoId }.toHashSet()
+            video.removeAll { it.videoId in songVideoIds }
+
             try {
                 if (artist.size >= 3) {
                     for (i in 0..2) {
