@@ -370,28 +370,6 @@ fun HomeScreen(
 //        )
 //    }
 
-
-
-
-
-
-
-    if (showRequestShareLyricsPermissions) {
-        ShareSavedLyricsDialog(
-            onDismissRequest = {
-                showRequestShareLyricsPermissions = false
-                sharedViewModel.onDoneReview(
-                    isDismissOnly = true,
-                )
-            },
-            onConfirm = { contributor ->
-                sharedViewModel.onDoneRequestingShareLyrics(
-                    contributor,
-                )
-            },
-        )
-    }
-
     if (shouldShowLogInAlert) {
         var doNotShowAgain by rememberSaveable {
             mutableStateOf(false)
