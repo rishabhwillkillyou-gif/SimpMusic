@@ -88,6 +88,7 @@ sealed class SearchScreenUIState {
     object Error : SearchScreenUIState()
 }
 
+// Personal Music: resilient search integration branch marker.
 class SearchViewModel(
     private val dataStoreManager: DataStoreManager,
     private val searchRepository: SearchRepository,
