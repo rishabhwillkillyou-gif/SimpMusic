@@ -120,7 +120,6 @@ import com.maxrave.simpmusic.ui.component.NowPlayingBottomSheet
 import com.maxrave.simpmusic.ui.component.OfflineErrorState
 import com.maxrave.simpmusic.ui.component.QuickPicksItem
 import com.maxrave.simpmusic.ui.component.RippleIconButton
-import com.maxrave.simpmusic.ui.component.ShareSavedLyricsDialog
 import com.maxrave.simpmusic.ui.component.rememberHolderPainter
 import com.maxrave.simpmusic.ui.icon.Groups
 import com.maxrave.simpmusic.ui.icon.History
@@ -246,8 +245,6 @@ fun HomeScreen(
 
     val shouldShowLogInAlert by viewModel.showLogInAlert.collectAsStateWithLifecycle()
 
-    val openAppTime by sharedViewModel.openAppTime.collectAsStateWithLifecycle()
-    val shareLyricsPermissions by sharedViewModel.shareSavedLyrics.collectAsStateWithLifecycle()
 
     val backgroundColor = MaterialTheme.colorScheme.background
     val isLightTheme = backgroundColor.luminance() > 0.5f
@@ -289,9 +286,6 @@ fun HomeScreen(
         }
     }
 
-    var showRequestShareLyricsPermissions by rememberSaveable {
-        mutableStateOf(false)
-    }
 
     var topAppBarHeightPx by rememberSaveable {
         mutableIntStateOf(0)
@@ -342,13 +336,7 @@ fun HomeScreen(
     LaunchedEffect(key1 = homeData) {
         accountShow = homeData.find { it.subtitle == accountInfo?.first } == null
     }
-    LaunchedEffect(openAppTime, shareLyricsPermissions) {
-        if ((openAppTime == 1 || openAppTime % 15 == 0) && openAppTime <= 60 && !shareLyricsPermissions) {
-            showRequestShareLyricsPermissions = true
-        } else {
-            showRequestShareLyricsPermissions = false
-        }
-    }
+    // RishiFy: upstream engagement/promotional prompts are intentionally disabled.
 
     val shouldStartPaginate =
         remember {
