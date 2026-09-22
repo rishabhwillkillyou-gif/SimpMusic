@@ -143,7 +143,7 @@ fun CreditScreen(
 
             TextButton(
                 onClick = {
-                    openUrl("https://github.com/maxrave-dev/SimpMusic")
+                    openUrl("https://github.com/rishabhwillkillyou-gif/SimpMusic")
                 },
                 modifier =
                     Modifier
