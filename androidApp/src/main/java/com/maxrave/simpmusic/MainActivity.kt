@@ -18,7 +18,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.net.toUri
 import androidx.core.os.LocaleListCompat
-import androidx.lifecycle.lifecycleScope
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -37,7 +36,6 @@ import com.maxrave.domain.mediaservice.handler.ToastType
 import com.maxrave.logger.Logger
 import com.maxrave.media3.di.setServiceActivitySession
 import com.maxrave.simpmusic.di.viewModelModule
-import com.maxrave.simpmusic.service.rss.RssFeedNotifyWork
 import com.maxrave.simpmusic.service.test.notification.NotifyWork
 import com.maxrave.simpmusic.utils.ComposeResUtils
 import com.maxrave.simpmusic.utils.VersionManager
@@ -115,7 +113,6 @@ class MainActivity : AppCompatActivity() {
         unloadKoinModules(viewModelModule)
         loadKoinModules(viewModelModule)
         VersionManager.initialize()
-        checkForUpdate()
         if (viewModel.recreateActivity.value || viewModel.isServiceRunning) {
             viewModel.activityRecreateDone()
         } else {
@@ -204,30 +201,7 @@ class MainActivity : AppCompatActivity() {
             ExistingPeriodicWorkPolicy.KEEP,
             request,
         )
-        lifecycleScope.launch {
-            dataStoreManager.blogNotificationEnabled.collect { enabled ->
-                if (enabled == DataStoreManager.TRUE) {
-                    val rssRequest =
-                        PeriodicWorkRequestBuilder<RssFeedNotifyWork>(
-                            24L,
-                            TimeUnit.HOURS,
-                        ).addTag("Blog RSS Worker")
-                            .setConstraints(
-                                Constraints
-                                    .Builder()
-                                    .setRequiredNetworkType(NetworkType.CONNECTED)
-                                    .build(),
-                            ).build()
-                    WorkManager.getInstance(this@MainActivity).enqueueUniquePeriodicWork(
-                        "Blog RSS Worker",
-                        ExistingPeriodicWorkPolicy.KEEP,
-                        rssRequest,
-                    )
-                } else {
-                    WorkManager.getInstance(this@MainActivity).cancelUniqueWork("Blog RSS Worker")
-                }
-            }
-        }
+
 
         if (!EasyPermissions.hasPermissions(this, Manifest.permission.POST_NOTIFICATIONS)) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -252,7 +226,6 @@ class MainActivity : AppCompatActivity() {
         }
         viewModel.getLocation()
 
-        if (!BuildConfig.DEBUG) viewModel.checkOfficialBuild(packageName, signingCertSha256())
         setContent {
             App(viewModel)
         }
@@ -301,11 +274,7 @@ class MainActivity : AppCompatActivity() {
         Logger.d("Service", "Service started")
     }
 
-    private fun checkForUpdate() {
-        if (viewModel.shouldCheckForUpdate()) {
-            viewModel.checkForUpdate()
-        }
-    }
+
 
     private fun putString(
         key: String,
