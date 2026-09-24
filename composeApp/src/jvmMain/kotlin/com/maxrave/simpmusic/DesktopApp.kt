@@ -46,6 +46,7 @@ import com.maxrave.simpmusic.viewModel.changeLanguageNative
 import io.sentry.Sentry
 import io.sentry.SentryLevel
 import io.sentry.protocol.User
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -165,6 +166,15 @@ fun runDesktopApp(args: Array<String> = emptyArray()) {
     // discarded it, and the app merely came to the foreground while the login sat there
     // waiting forever. Any scheme we register with the OS must survive this line.
     val deepLinkArg = args.firstOrNull()?.takeIf { DEEP_LINK_ARG.matches(it) }
+
+    // Hard OS-level process lock. This closes the Windows startup race where two fast launches
+    // can both pass the higher-level single-instance helper and then collide on DataStore.
+    if (!DesktopProcessLock.tryAcquire()) {
+        deepLinkArg?.let { DesktopDeepLinkHandler.writePendingUri(it) }
+        DesktopProcessLock.requestRestore()
+        return
+    }
+
     // Single-instance guard — MUST run before startKoin. The DataStore Koin
     // singleton is `createdAtStart`, so a second Windows instance would touch
     // ~/.simpmusic/settings.preferences_pb and crash with an "Unable to rename
@@ -178,6 +188,7 @@ fun runDesktopApp(args: Array<String> = emptyArray()) {
         // Second instance: forward the deep link (if any) to the running instance,
         // then exit. Nothing has touched the DataStore file yet.
         deepLinkArg?.let { DesktopDeepLinkHandler.writePendingUri(it) }
+        DesktopProcessLock.requestRestore()
         return
     }
 
@@ -261,6 +272,18 @@ fun runDesktopApp(args: Array<String> = emptyArray()) {
     }
 
     application {
+        // A second launch writes a tiny restore request file and exits before touching DataStore.
+        // Polling here is deliberately lightweight and also covers the brief startup window before
+        // ComposeTray's own restore callback is fully registered.
+        LaunchedEffect(Unit) {
+            while (true) {
+                delay(400)
+                if (DesktopProcessLock.consumeRestoreRequest()) {
+                    DesktopRestoreSignal.request()
+                }
+            }
+        }
+
         // Main Window
         val windowState =
             rememberWindowState(
@@ -393,20 +416,10 @@ fun runDesktopApp(args: Array<String> = emptyArray()) {
                 vmTokens.any { sysInfo.contains(it, ignoreCase = true) } ||
                     System.getProperty("compose.window.no-transparent", "false").toBooleanStrictOrNull() == true
             }
-        // Windows should use the native OS chrome. Besides looking familiar, this restores
-        // standard minimize / maximize / close controls, native resizing, Alt+Space and
-        // Windows 11 Snap Layout behaviour. The custom frameless title bar remains available
-        // to the other desktop platforms.
-        val isWindows =
-            remember {
-                System.getProperty("os.name", "").contains("Windows", ignoreCase = true)
-            }
-        val useNativeWindowChrome = isWindows || isVM
-
         // Publish whether the custom title bar will be mounted so getScreenSizeInfo() can
         // subtract the 40dp strip it occupies above the content (see DesktopWindowChrome).
-        LaunchedEffect(useNativeWindowChrome) {
-            DesktopWindowChrome.customTitleBarVisible = !useNativeWindowChrome
+        LaunchedEffect(isVM) {
+            DesktopWindowChrome.customTitleBarVisible = !isVM
         }
         Window(
             onCloseRequest = {
@@ -414,8 +427,8 @@ fun runDesktopApp(args: Array<String> = emptyArray()) {
             },
             title = stringResource(Res.string.app_name),
             icon = painterResource(Res.drawable.circle_app_icon),
-            undecorated = !useNativeWindowChrome,
-            transparent = !useNativeWindowChrome,
+            undecorated = !isVM,
+            transparent = !isVM,
             state = windowState,
             visible = isVisible,
         ) {
@@ -477,14 +490,14 @@ fun runDesktopApp(args: Array<String> = emptyArray()) {
                     Modifier
                         .fillMaxSize()
                         .then(
-                            if (!useNativeWindowChrome) {
+                            if (!isVM) {
                                 Modifier.clip(RoundedCornerShape(12.dp))
                             } else {
                                 Modifier
                             },
                         ),
             ) {
-                if (!useNativeWindowChrome) {
+                if (!isVM) {
                     // The bar sits outside AppTheme, so the colours are resolved here from the
                     // same stored setting AppTheme uses and handed down. Pure black / pure white
                     // to match the window colour the shell paints behind the panels.
