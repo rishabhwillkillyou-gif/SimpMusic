@@ -33,11 +33,19 @@ jobs:
           LASTFM_SECRET=
           "@ | Set-Content local.properties
 
-      - name: Generate RishiFy Windows icon
+      - name: Generate all RishiFy Windows icons
         shell: pwsh
         run: |
           $b64 = (Get-Content branding/rishify_icon.b64 -Raw).Trim()
-          [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\rishify.png", [Convert]::FromBase64String($b64))
+          $png = "$env:RUNNER_TEMP\rishify.png"
+          [IO.File]::WriteAllBytes($png, [Convert]::FromBase64String($b64))
+
+          # Replace every desktop-facing bitmap resource so the packaged EXE, tray icon,
+          # navigation/app logo and About screen all use the same locked RishiFy artwork.
+          Copy-Item $png "composeApp\src\commonMain\composeResources\drawable\app_icon.png" -Force
+          Copy-Item $png "composeApp\src\commonMain\composeResources\drawable\circle_app_icon.png" -Force
+          Copy-Item $png "composeApp\icon\circle_app_icon.png" -Force
+
           python -m pip install --disable-pip-version-check pillow
           @'
           from PIL import Image
@@ -49,6 +57,8 @@ jobs:
           print("Generated", out)
           '@ | python -
 
+          Write-Host "RishiFy icon replacement complete:"
+          Get-Item 
       - name: Generate library metadata
         shell: pwsh
         run: ./gradlew.bat exportLibraryDefinitions
