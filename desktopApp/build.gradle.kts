@@ -209,6 +209,9 @@ compose.desktop {
             }
             windows {
                 includeAllModules = true
+                // Stable identity for Windows Installer upgrades. This matches the UpgradeCode
+                // used by the shipped RishiFy 2.1.0 and 2.1.1 MSIs.
+                upgradeUuid = "E050E261-8241-3849-AEAC-98D247188D8E"
                 // RishiFy Windows patch level. Keep this higher than the first 2.1.0 MSI so
                 // Windows Installer treats the crash-fix build as an upgrade.
                 packageVersion = "2.1.1"
