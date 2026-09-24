@@ -1,0 +1,50 @@
+name: Inspect RishiFy MSI Identity
+
+on:
+  pull_request:
+    branches: [ dev ]
+
+jobs:
+  inspect-msi:
+    runs-on: windows-latest
+    steps:
+      - name: Download old and new MSI artifacts
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $headers = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept = "application/vnd.github+json"
+            "X-GitHub-Api-Version" = "2022-11-28"
+          }
+          Invoke-WebRequest -Headers $headers -Uri "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/10799720217/zip" -OutFile old.zip
+          Invoke-WebRequest -Headers $headers -Uri "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/10805787071/zip" -OutFile new.zip
+          Expand-Archive old.zip old
+          Expand-Archive new.zip new
+
+      - name: Read MSI identity
+        shell: pwsh
+        run: |
+          $installer = New-Object -ComObject WindowsInstaller.Installer
+          function Get-MsiProperty([string]$path, [string]$property) {
+            $db = $installer.OpenDatabase((Resolve-Path $path).Path, 0)
+            $view = $db.OpenView("SELECT Value FROM Property WHERE Property='$property'")
+            $view.Execute()
+            $record = $view.Fetch()
+            if ($null -eq $record) { return "<missing>" }
+            return $record.StringData(1)
+          }
+
+          $old = (Get-ChildItem old -Recurse -Filter *.msi | Select-Object -First 1).FullName
+          $new = (Get-ChildItem new -Recurse -Filter *.msi | Select-Object -First 1).FullName
+
+          Write-Host "OLD_MSI=$old"
+          Write-Host "OLD_PRODUCT_CODE=$(Get-MsiProperty $old 'ProductCode')"
+          Write-Host "OLD_UPGRADE_CODE=$(Get-MsiProperty $old 'UpgradeCode')"
+          Write-Host "OLD_VERSION=$(Get-MsiProperty $old 'ProductVersion')"
+
+          Write-Host "NEW_MSI=$new"
+          Write-Host "NEW_PRODUCT_CODE=$(Get-MsiProperty $new 'ProductCode')"
+          Write-Host "NEW_UPGRADE_CODE=$(Get-MsiProperty $new 'UpgradeCode')"
+          Write-Host "NEW_VERSION=$(Get-MsiProperty $new 'ProductVersion')"
