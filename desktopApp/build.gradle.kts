@@ -209,10 +209,9 @@ compose.desktop {
             }
             windows {
                 includeAllModules = true
-                packageVersion =
-                    libs.versions.version.name
-                        .get()
-                        .removeSuffix("-hf")
+                // RishiFy Windows patch level. Keep this higher than the first 2.1.0 MSI so
+                // Windows Installer treats the crash-fix build as an upgrade.
+                packageVersion = "2.1.1"
                 iconFile.set(rootDir.resolve("composeApp/icon/circle_app_icon.ico"))
             }
             linux {
