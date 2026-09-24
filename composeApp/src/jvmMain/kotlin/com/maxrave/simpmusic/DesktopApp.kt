@@ -252,9 +252,8 @@ fun runDesktopApp(args: Array<String> = emptyArray()) {
     desktopNotificationManager.initialize()
 
     val sharedViewModel = getKoin().get<SharedViewModel>()
-    if (sharedViewModel.shouldCheckForUpdate()) {
-        sharedViewModel.checkForUpdate()
-    }
+    // RishiFy builds are distributed through our own release channel.
+    // Do not query or display upstream SimpMusic update notices.
 
     // Connect deep link handler to SharedViewModel
     DesktopDeepLinkHandler.listener = { intent ->
