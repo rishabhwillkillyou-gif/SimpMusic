@@ -214,7 +214,7 @@ compose.desktop {
                 upgradeUuid = "E050E261-8241-3849-AEAC-98D247188D8E"
                 // RishiFy Windows patch level. Keep this higher than the first 2.1.0 MSI so
                 // Windows Installer treats the crash-fix build as an upgrade.
-                packageVersion = "2.1.4"
+                packageVersion = "2.1.5"
                 iconFile.set(rootDir.resolve("composeApp/icon/circle_app_icon.ico"))
             }
             linux {
