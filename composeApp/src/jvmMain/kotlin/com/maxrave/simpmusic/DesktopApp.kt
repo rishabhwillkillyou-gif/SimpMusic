@@ -393,10 +393,20 @@ fun runDesktopApp(args: Array<String> = emptyArray()) {
                 vmTokens.any { sysInfo.contains(it, ignoreCase = true) } ||
                     System.getProperty("compose.window.no-transparent", "false").toBooleanStrictOrNull() == true
             }
+        // Windows should use the native OS chrome. Besides looking familiar, this restores
+        // standard minimize / maximize / close controls, native resizing, Alt+Space and
+        // Windows 11 Snap Layout behaviour. The custom frameless title bar remains available
+        // to the other desktop platforms.
+        val isWindows =
+            remember {
+                System.getProperty("os.name", "").contains("Windows", ignoreCase = true)
+            }
+        val useNativeWindowChrome = isWindows || isVM
+
         // Publish whether the custom title bar will be mounted so getScreenSizeInfo() can
         // subtract the 40dp strip it occupies above the content (see DesktopWindowChrome).
-        LaunchedEffect(isVM) {
-            DesktopWindowChrome.customTitleBarVisible = !isVM
+        LaunchedEffect(useNativeWindowChrome) {
+            DesktopWindowChrome.customTitleBarVisible = !useNativeWindowChrome
         }
         Window(
             onCloseRequest = {
@@ -404,8 +414,8 @@ fun runDesktopApp(args: Array<String> = emptyArray()) {
             },
             title = stringResource(Res.string.app_name),
             icon = painterResource(Res.drawable.circle_app_icon),
-            undecorated = !isVM,
-            transparent = !isVM,
+            undecorated = !useNativeWindowChrome,
+            transparent = !useNativeWindowChrome,
             state = windowState,
             visible = isVisible,
         ) {
@@ -467,14 +477,14 @@ fun runDesktopApp(args: Array<String> = emptyArray()) {
                     Modifier
                         .fillMaxSize()
                         .then(
-                            if (!isVM) {
+                            if (!useNativeWindowChrome) {
                                 Modifier.clip(RoundedCornerShape(12.dp))
                             } else {
                                 Modifier
                             },
                         ),
             ) {
-                if (!isVM) {
+                if (!useNativeWindowChrome) {
                     // The bar sits outside AppTheme, so the colours are resolved here from the
                     // same stored setting AppTheme uses and handed down. Pure black / pure white
                     // to match the window colour the shell paints behind the panels.
