@@ -33,18 +33,19 @@ jobs:
           LASTFM_SECRET=
           "@ | Set-Content local.properties
 
-      - name: Generate all RishiFy Windows icons
+      - name: Apply complete RishiFy icon branding
         shell: pwsh
         run: |
           $b64 = (Get-Content branding/rishify_icon.b64 -Raw).Trim()
           $png = "$env:RUNNER_TEMP\rishify.png"
           [IO.File]::WriteAllBytes($png, [Convert]::FromBase64String($b64))
 
-          # Replace every desktop-facing bitmap resource so the packaged EXE, tray icon,
-          # navigation/app logo and About screen all use the same locked RishiFy artwork.
-          Copy-Item $png "composeApp\src\commonMain\composeResources\drawable\app_icon.png" -Force
-          Copy-Item $png "composeApp\src\commonMain\composeResources\drawable\circle_app_icon.png" -Force
-          Copy-Item $png "composeApp\icon\circle_app_icon.png" -Force
+          # Shared desktop resources used inside the app and by the system tray.
+          Copy-Item -LiteralPath $png -Destination "composeApp\src\commonMain\composeResources\drawable\app_icon.png" -Force
+          Copy-Item -LiteralPath $png -Destination "composeApp\src\commonMain\composeResources\drawable\circle_app_icon.png" -Force
+
+          # Native desktop icon source.
+          Copy-Item -LiteralPath $png -Destination "composeApp\icon\circle_app_icon.png" -Force
 
           python -m pip install --disable-pip-version-check pillow
           @'
@@ -53,12 +54,21 @@ jobs:
           src = os.path.join(os.environ["RUNNER_TEMP"], "rishify.png")
           img = Image.open(src).convert("RGBA")
           out = os.path.join("composeApp", "icon", "circle_app_icon.ico")
-          img.save(out, format="ICO", sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])
+          img.save(
+              out,
+              format="ICO",
+              sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)],
+          )
           print("Generated", out)
           '@ | python -
 
-          Write-Host "RishiFy icon replacement complete:"
-          Get-Item 
+          if (-not (Test-Path "composeApp\src\commonMain\composeResources\drawable\app_icon.png")) { throw "app_icon.png missing" }
+          if (-not (Test-Path "composeApp\src\commonMain\composeResources\drawable\circle_app_icon.png")) { throw "circle_app_icon.png missing" }
+          if (-not (Test-Path "composeApp\icon\circle_app_icon.png")) { throw "desktop PNG icon missing" }
+          if (-not (Test-Path "composeApp\icon\circle_app_icon.ico")) { throw "desktop ICO icon missing" }
+
+          Write-Host "All RishiFy desktop icon targets replaced successfully."
+
       - name: Generate library metadata
         shell: pwsh
         run: ./gradlew.bat exportLibraryDefinitions
