@@ -46,6 +46,7 @@ import com.maxrave.simpmusic.viewModel.changeLanguageNative
 import io.sentry.Sentry
 import io.sentry.SentryLevel
 import io.sentry.protocol.User
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -165,6 +166,15 @@ fun runDesktopApp(args: Array<String> = emptyArray()) {
     // discarded it, and the app merely came to the foreground while the login sat there
     // waiting forever. Any scheme we register with the OS must survive this line.
     val deepLinkArg = args.firstOrNull()?.takeIf { DEEP_LINK_ARG.matches(it) }
+
+    // Hard OS-level process lock. This closes the Windows startup race where two fast launches
+    // can both pass the higher-level single-instance helper and then collide on DataStore.
+    if (!DesktopProcessLock.tryAcquire()) {
+        deepLinkArg?.let { DesktopDeepLinkHandler.writePendingUri(it) }
+        DesktopProcessLock.requestRestore()
+        return
+    }
+
     // Single-instance guard — MUST run before startKoin. The DataStore Koin
     // singleton is `createdAtStart`, so a second Windows instance would touch
     // ~/.simpmusic/settings.preferences_pb and crash with an "Unable to rename
@@ -178,6 +188,7 @@ fun runDesktopApp(args: Array<String> = emptyArray()) {
         // Second instance: forward the deep link (if any) to the running instance,
         // then exit. Nothing has touched the DataStore file yet.
         deepLinkArg?.let { DesktopDeepLinkHandler.writePendingUri(it) }
+        DesktopProcessLock.requestRestore()
         return
     }
 
@@ -252,9 +263,8 @@ fun runDesktopApp(args: Array<String> = emptyArray()) {
     desktopNotificationManager.initialize()
 
     val sharedViewModel = getKoin().get<SharedViewModel>()
-    if (sharedViewModel.shouldCheckForUpdate()) {
-        sharedViewModel.checkForUpdate()
-    }
+    // RishiFy builds are distributed through our own release channel.
+    // Do not query or display upstream SimpMusic update notices.
 
     // Connect deep link handler to SharedViewModel
     DesktopDeepLinkHandler.listener = { intent ->
@@ -262,6 +272,18 @@ fun runDesktopApp(args: Array<String> = emptyArray()) {
     }
 
     application {
+        // A second launch writes a tiny restore request file and exits before touching DataStore.
+        // Polling here is deliberately lightweight and also covers the brief startup window before
+        // ComposeTray's own restore callback is fully registered.
+        LaunchedEffect(Unit) {
+            while (true) {
+                delay(400)
+                if (DesktopProcessLock.consumeRestoreRequest()) {
+                    DesktopRestoreSignal.request()
+                }
+            }
+        }
+
         // Main Window
         val windowState =
             rememberWindowState(

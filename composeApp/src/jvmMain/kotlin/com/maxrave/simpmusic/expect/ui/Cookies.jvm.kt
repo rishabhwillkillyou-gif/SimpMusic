@@ -9,6 +9,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -20,6 +24,8 @@ import org.jetbrains.compose.resources.stringResource
 import simpmusic.composeapp.generated.resources.Res
 import simpmusic.composeapp.generated.resources.desktop_webview_description
 import simpmusic.composeapp.generated.resources.open_blog_post
+import simpmusic.composeapp.generated.resources.login_sync_desktop_title
+import simpmusic.composeapp.generated.resources.login_sync_desktop_description
 import java.net.CookieHandler
 import java.net.CookieManager
 import java.net.URI
@@ -47,32 +53,48 @@ actual fun PlatformWebView(
     aboveContent: @Composable (BoxScope.() -> Unit),
     onPageFinished: (String) -> Unit,
 ) {
+    var showLoginSync by remember { mutableStateOf(true) }
+
     Box(
         modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                stringResource(Res.string.desktop_webview_description),
-                style = typo().labelMedium,
+                stringResource(Res.string.login_sync_desktop_title),
+                style = typo().titleMedium,
                 color = Color.White,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                stringResource(Res.string.login_sync_desktop_description),
+                style = typo().bodyMedium,
+                color = Color.LightGray,
+                textAlign = TextAlign.Center,
             )
             Button(
-                onClick = {
-                    openUrl("https://www.simpmusic.org/blogs/en/how-to-log-in-on-desktop-app")
-                },
+                onClick = { showLoginSync = true },
             ) {
                 Text(
-                    stringResource(Res.string.open_blog_post),
+                    stringResource(Res.string.login_sync_desktop_title),
                     style = typo().labelMedium,
                     color = Color.DarkGray,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
             }
         }
+
+        if (showLoginSync) {
+            LoginSyncDialog(
+                onDismiss = {
+                    showLoginSync = false
+                    state.value = WebViewState.Finished
+                },
+            )
+        }
+
         aboveContent()
     }
 }

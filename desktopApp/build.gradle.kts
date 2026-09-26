@@ -129,7 +129,7 @@ tasks.named<hydraulic.conveyor.gradle.WriteConveyorConfigTask>("writeConveyorCon
         destination.get().asFile.appendText(
             """
             |app.fsname = simpmusic
-            |app.display-name = SimpMusic
+            |app.display-name = RishiFy
             |app.rdns-name = com.maxrave.simpmusic
             |
             |// Override the Gradle-detected classpath with the ProGuard'd
@@ -167,7 +167,7 @@ compose.desktop {
             }
             targetFormats(*listTarget.toTypedArray())
             modules("jdk.unsupported")
-            packageName = "SimpMusic"
+            packageName = "RishiFy"
             macOS {
                 val formatedDate =
                     Instant.now().let {
@@ -209,10 +209,12 @@ compose.desktop {
             }
             windows {
                 includeAllModules = true
-                packageVersion =
-                    libs.versions.version.name
-                        .get()
-                        .removeSuffix("-hf")
+                // Stable identity for Windows Installer upgrades. This matches the UpgradeCode
+                // used by the shipped RishiFy 2.1.0 and 2.1.1 MSIs.
+                upgradeUuid = "E050E261-8241-3849-AEAC-98D247188D8E"
+                // RishiFy Windows patch level. Keep this higher than the first 2.1.0 MSI so
+                // Windows Installer treats the crash-fix build as an upgrade.
+                packageVersion = "2.1.6"
                 iconFile.set(rootDir.resolve("composeApp/icon/circle_app_icon.ico"))
             }
             linux {
@@ -332,7 +334,7 @@ tasks.register("packageConveyorAppImage") {
     )
 
     doLast {
-        val appName = "SimpMusic"
+        val appName = "RishiFy"
         val conveyorOutput = rootDir.resolve("output")
         if (!conveyorOutput.exists()) {
             throw GradleException(
@@ -396,13 +398,13 @@ tasks.register("packageConveyorAppImage") {
             """[Desktop Entry]
             |Type=Application
             |Version=1.0
-            |Name=SimpMusic
-            |Comment=SimpMusic v$versionName - FOSS YouTube Music Client
+            |Name=RishiFy
+            |Comment=RishiFy v$versionName - Personal Music
             |Exec=bin/simpmusic %u
             |Icon=simpmusic
             |Terminal=false
             |Categories=Audio;AudioVideo;
-            |StartupWMClass=SimpMusic
+            |StartupWMClass=RishiFy
             |MimeType=x-scheme-handler/simpmusic;x-scheme-handler/wordbyword;
             |
             """.trimMargin(),

@@ -1,0 +1,2 @@
+RishiFy Windows 2.1.2
+Complete icon replacement + DataStore singleton fix
