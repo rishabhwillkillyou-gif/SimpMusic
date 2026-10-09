@@ -1,6 +1,8 @@
 name: RishiFy Windows MSI
 
 on:
+  push:
+    branches: [ rishify-windows-v0.1 ]
   pull_request:
     branches: [ dev ]
   workflow_dispatch:

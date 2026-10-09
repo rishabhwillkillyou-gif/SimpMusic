@@ -212,39 +212,39 @@ private fun WindowControlButton(
                 },
         contentAlignment = Alignment.Center,
     ) {
-        // Show icons on hover for better UX
-        if (isHovered) {
-            Box(modifier = Modifier.padding(1.dp)) {
-                when (icon) {
-                    WindowControlIcon.Minimize -> {
-                        Icon(SimpIcons.Remove, tint = Color.DarkGray, contentDescription = "Minimize")
-                    }
+        // Keep the symbols visible at all times. The old hover-only treatment made the
+        // red/yellow/green controls look decorative even though they were fully functional.
+        val iconTint = if (isHovered) Color.DarkGray else Color.DarkGray.copy(alpha = 0.62f)
+        Box(modifier = Modifier.padding(1.dp)) {
+            when (icon) {
+                WindowControlIcon.Minimize -> {
+                    Icon(SimpIcons.Remove, tint = iconTint, contentDescription = "Minimize")
+                }
 
-                    WindowControlIcon.Maximize -> {
-                        Icon(
-                            modifier = Modifier.rotate(45f),
-                            imageVector = SimpIcons.UnfoldMore,
-                            tint = Color.DarkGray,
-                            contentDescription = "Minimize",
-                        )
-                    }
+                WindowControlIcon.Maximize -> {
+                    Icon(
+                        modifier = Modifier.rotate(45f),
+                        imageVector = SimpIcons.UnfoldMore,
+                        tint = iconTint,
+                        contentDescription = "Maximize",
+                    )
+                }
 
-                    WindowControlIcon.Restore -> {
-                        Icon(
-                            modifier = Modifier.rotate(45f),
-                            imageVector = SimpIcons.UnfoldLess,
-                            tint = Color.DarkGray,
-                            contentDescription = "Minimize",
-                        )
-                    }
+                WindowControlIcon.Restore -> {
+                    Icon(
+                        modifier = Modifier.rotate(45f),
+                        imageVector = SimpIcons.UnfoldLess,
+                        tint = iconTint,
+                        contentDescription = "Restore",
+                    )
+                }
 
-                    WindowControlIcon.Close -> {
-                        Icon(
-                            imageVector = SimpIcons.Close,
-                            tint = Color.DarkGray,
-                            contentDescription = "Close",
-                        )
-                    }
+                WindowControlIcon.Close -> {
+                    Icon(
+                        imageVector = SimpIcons.Close,
+                        tint = iconTint,
+                        contentDescription = "Close",
+                    )
                 }
             }
         }
