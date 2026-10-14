@@ -1054,8 +1054,7 @@ fun NowPlayingContentSpotify(
                                             IconButton(
                                                 modifier =
                                                     Modifier
-                                                        .size(24.dp)
-                                                        .aspectRatio(1f)
+                                                        .size(48.dp)
                                                         .clip(CircleShape),
                                                 onClick = {
                                                     actions.onShowAddToPlaylist()
@@ -1065,6 +1064,7 @@ fun NowPlayingContentSpotify(
                                                     imageVector = SimpIcons.PlaylistAdd,
                                                     tint = Color.White,
                                                     contentDescription = "Add to Playlist",
+                                                    modifier = Modifier.size(24.dp),
                                                 )
                                             }
 
@@ -1072,8 +1072,7 @@ fun NowPlayingContentSpotify(
                                             IconButton(
                                                 modifier =
                                                     Modifier
-                                                        .size(24.dp)
-                                                        .aspectRatio(1f)
+                                                        .size(48.dp)
                                                         .clip(CircleShape),
                                                 onClick = {
                                                     actions.onShowQueue()
@@ -1082,7 +1081,8 @@ fun NowPlayingContentSpotify(
                                                 Icon(
                                                     imageVector = SimpIcons.QueueMusic,
                                                     tint = Color.White,
-                                                    contentDescription = "",
+                                                    contentDescription = "Queue",
+                                                    modifier = Modifier.size(24.dp),
                                                 )
                                             }
                                         }
