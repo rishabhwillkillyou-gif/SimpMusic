@@ -211,6 +211,7 @@ import simpmusic.composeapp.generated.resources.downloading_audio
 import simpmusic.composeapp.generated.resources.downloading_video
 import simpmusic.composeapp.generated.resources.edit_thumbnail
 import simpmusic.composeapp.generated.resources.edit_title
+import simpmusic.composeapp.generated.resources.equalizer
 import simpmusic.composeapp.generated.resources.endless_queue
 import simpmusic.composeapp.generated.resources.error_occurred
 import simpmusic.composeapp.generated.resources.extract_source
@@ -1443,6 +1444,7 @@ fun NowPlayingBottomSheet(
     var sleepTimerWarning by remember { mutableStateOf(false) }
     var isBottomSheetVisible by rememberSaveable { mutableStateOf(false) }
     var changePlaybackSpeedPitch by remember { mutableStateOf(false) }
+    var showEqualizer by remember { mutableStateOf(false) }
     val crossfadeEnabled by dataStoreManager.crossfadeEnabled.collectAsState(DataStoreManager.FALSE)
 
     LaunchedEffect(uiState) {
@@ -1470,6 +1472,12 @@ fun NowPlayingBottomSheet(
                 ),
             )
         }
+    }
+
+    if (showEqualizer) {
+        EqualizerQuickBottomSheet(
+            onDismiss = { showEqualizer = false },
+        )
     }
 
     if (addToAPlaylist) {
@@ -1812,6 +1820,12 @@ fun NowPlayingBottomSheet(
                         text = Res.string.play_next,
                     ) {
                         viewModel.onUIEvent(NowPlayingBottomSheetUIEvent.PlayNext)
+                    }
+                    ActionButton(
+                        icon = SimpIcons.Tune,
+                        text = Res.string.equalizer,
+                    ) {
+                        showEqualizer = true
                     }
                     ActionButton(
                         icon = SimpIcons.QueueMusic,
