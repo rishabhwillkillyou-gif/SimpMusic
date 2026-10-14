@@ -126,6 +126,7 @@ import com.maxrave.simpmusic.ui.icon.ArrowOutward
 import com.maxrave.simpmusic.ui.icon.Close
 import com.maxrave.simpmusic.ui.icon.History
 import com.maxrave.simpmusic.ui.icon.Search
+import com.maxrave.simpmusic.ui.icon.SkipNext
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.navigation.destination.home.MoodDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.AlbumDestination
@@ -393,6 +394,15 @@ fun SearchScreen(
                         items(searchScreenState.suggestYTItems) { item ->
                             SuggestItemRow(
                                 searchResult = item,
+                                onPlayNext = { item ->
+                                    val track =
+                                        when (item) {
+                                            is SongsResult -> item.toTrack()
+                                            is VideosResult -> item.toTrack()
+                                            else -> null
+                                        }
+                                    track?.let(searchViewModel::playNext)
+                                },
                                 onItemClick = { item ->
                                     when (item) {
                                         is SongsResult, is VideosResult -> {
@@ -1141,6 +1151,7 @@ fun SearchScreen(
 fun SuggestItemRow(
     searchResult: SearchResultType,
     onItemClick: (SearchResultType) -> Unit,
+    onPlayNext: ((SearchResultType) -> Unit)? = null,
 ) {
     Row(
         modifier =
@@ -1264,6 +1275,20 @@ fun SuggestItemRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+
+        if (onPlayNext != null && (searchResult is SongsResult || searchResult is VideosResult)) {
+            IconButton(
+                onClick = { onPlayNext(searchResult) },
+                modifier = Modifier.size(48.dp),
+            ) {
+                Icon(
+                    imageVector = SimpIcons.SkipNext,
+                    contentDescription = "Play next",
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

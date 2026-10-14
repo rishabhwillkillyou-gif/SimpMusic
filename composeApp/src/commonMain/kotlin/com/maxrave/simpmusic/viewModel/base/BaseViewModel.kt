@@ -2,6 +2,7 @@ package com.maxrave.simpmusic.viewModel.base
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.maxrave.domain.data.model.browse.album.Track
 import com.maxrave.domain.mediaservice.handler.MediaPlayerHandler
 import com.maxrave.domain.mediaservice.handler.QueueData
 import com.maxrave.logger.LogLevel
@@ -125,6 +126,12 @@ abstract class BaseViewModel :
                 type = type,
                 index = index,
             )
+        }
+    }
+
+    fun playNext(track: Track) {
+        viewModelScope.launch {
+            mediaPlayerHandler.playNext(track)
         }
     }
 
