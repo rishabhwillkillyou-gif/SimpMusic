@@ -3,6 +3,12 @@ name: RishiFy v0.5 Release Compile Test
 on:
   push:
     branches: [personal-music-v0.5-mobile]
+    paths:
+      - 'androidApp/**'
+      - 'composeApp/**'
+      - 'core'
+      - 'gradle/**'
+      - '.github/workflows/rishify-v05-release-compile.yml'
   workflow_dispatch:
 
 permissions:
