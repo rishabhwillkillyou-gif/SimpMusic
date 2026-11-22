@@ -72,7 +72,15 @@ Download the APK from the successful workflow artifact.
 
 ## Step 5: install safely
 
-Keep the old v0.4 debug application installed initially. The new v0.5 release app is a separate Android package and will start with separate app data. If the old app has a working export/backup option, use it before moving data; data migration is not guaranteed. Install v0.5, test Play Next, Refresh Radio, playlists, downloads and streaming. Remove the old app only after you are satisfied.
+Keep the old v0.4 debug application installed initially. The new v0.5 release app is a separate Android package and will start with separate app data.
+
+**The app has a built-in Backup / Restore mechanism in Settings** (verified against the Android implementation). Before installing:
+1. Open OLD RishiFy v0.4 > Settings > Backup. If needed, enable "Backup downloaded" first. Save its generated .backup archive to a shared location such as Downloads, and make an extra copy.
+2. Install the new permanently signed RishiFy v0.5 APK without uninstalling v0.4. Android can keep both because their application IDs are different.
+3. Open NEW v0.5 > Settings > Restore your data and choose the v0.4 .backup archive. The app restores database and preferences and restarts. The backup option can also include downloads.
+4. Confirm playlists, favourites, downloads, queue, playback, and v0.5 Play Next / Refresh Radio before considering removal of v0.4.
+
+The backup format and implementation are shared between the branches, so restoration is expected to work, but it has not been device-tested across the two installed packages. Keep the original backup and v0.4 app until verification succeeds.
 
 ## Future updates
 
