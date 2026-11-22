@@ -1,0 +1,31 @@
+name: RishiFy signing-key recovery audit
+
+on:
+  push:
+    branches: [rishify-signing-audit]
+
+permissions:
+  contents: read
+
+jobs:
+  check-secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check existence of previously configured signing credentials
+        shell: bash
+        env:
+          ORIGINAL_KEY_B64: ${{ secrets.BASE_64_SIGNING_KEY }}
+          ORIGINAL_ALIAS: ${{ secrets.ALIAS }}
+          ORIGINAL_STOREPASS: ${{ secrets.KEY_STORE_PASSWORD }}
+          ORIGINAL_KEYPASS: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$ORIGINAL_KEY_B64" || -z "$ORIGINAL_ALIAS" || -z "$ORIGINAL_STOREPASS" || -z "$ORIGINAL_KEYPASS" ]]; then
+            echo "::notice::No complete pre-existing release signing configuration is available in this repository."
+            exit 0
+          fi
+          echo "::notice::A previously configured release-signing key exists. Testing whether it is usable."
+          printf '%s' "$ORIGINAL_KEY_B64" | base64 --decode > "$RUNNER_TEMP/existing-key.jks"
+          keytool -list -keystore "$RUNNER_TEMP/existing-key.jks" -storepass:env ORIGINAL_STOREPASS -alias "$ORIGINAL_ALIAS" -v |
+            grep -E '^SHA256:|^Alias name:|^Entry type:' || true
+          echo "::notice::Existing key audit complete. Key file is not uploaded or disclosed."
