@@ -1,9 +1,8 @@
 name: RishiFy v0.5 Android build and upgrade gate
 
+# Historical forensic comparison only. Fresh permanent-key releases use the separate
+# RishiFy Permanent Signed APK workflow, not this impossible v0.4 upgrade gate.
 on:
-  push:
-    branches:
-      - personal-music-v0.5-mobile
   workflow_dispatch:
 
 permissions:
