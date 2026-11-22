@@ -33,7 +33,7 @@ jobs:
           foreach ($name in @('RISHIFY_KEYSTORE_B64','RISHIFY_KEYSTORE_PASSWORD','RISHIFY_KEY_ALIAS','RISHIFY_KEY_PASSWORD','RISHIFY_CERT_SHA256')) {
               if (-not @($contents | Where-Object { $_.StartsWith("$name=") }).Count) { throw "Missing secret: $name" }
           }
-          $password = ($contents | Where-Object { $_.StartsWith('RISHIFY_KEYSTORE_PASSWORD=') })[0].Split('=',2)[1]
+          $password = @($contents | Where-Object { $_.StartsWith('RISHIFY_KEYSTORE_PASSWORD=') })[0].Split('=',2)[1]
           $env:RISHIFY_TEST_PASS = $password
           & keytool -list -keystore $p12 -storetype PKCS12 -alias rishify -storepass:env RISHIFY_TEST_PASS | Out-Null
           if ($LASTEXITCODE -ne 0) { throw 'Generated keystore could not be opened with saved password' }
