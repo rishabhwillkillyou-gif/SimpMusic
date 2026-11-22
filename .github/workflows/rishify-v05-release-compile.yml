@@ -1,0 +1,66 @@
+name: RishiFy v0.5 Release Compile Test
+
+on:
+  push:
+    branches: [personal-music-v0.5-mobile]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile-unsigned:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: microsoft
+          cache: gradle
+      - name: Original RishiFy branding
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode branding/rishify_icon.b64 > /tmp/rishify.png
+          cp /tmp/rishify.png androidApp/src/main/res/drawable/app_icon.png
+          cp /tmp/rishify.png composeApp/src/commonMain/composeResources/drawable/app_icon.png
+          cp /tmp/rishify.png composeApp/src/commonMain/composeResources/drawable/circle_app_icon.png
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            d="androidApp/src/main/res/mipmap-$density"
+            rm -f "$d/ic_launcher.webp" "$d/ic_launcher_round.webp" "$d/ic_launcher_foreground.webp"
+            cp /tmp/rishify.png "$d/ic_launcher.png"
+            cp /tmp/rishify.png "$d/ic_launcher_round.png"
+            cp /tmp/rishify.png "$d/ic_launcher_foreground.png"
+          done
+      - name: Configure release
+        shell: bash
+        run: |
+          printf '\nisFullBuild=true\n' >> gradle.properties
+          printf 'SENTRY_DSN=\nSENTRY_AUTH_TOKEN=\nLASTFM_API_KEY=\nLASTFM_SECRET=\n' > local.properties
+      - name: Build release APK
+        run: |
+          ./gradlew exportLibraryDefinitions
+          ./gradlew :androidApp:assembleRelease --stacktrace
+      - name: Validate unsigned release manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          find androidApp/build/outputs/apk/release -type f -name '*.apk' -print
+          APK="androidApp/build/outputs/apk/release/androidApp-arm64-v8a-release-unsigned.apk"
+          test -s "$APK"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" > /tmp/badging.txt
+          first="$(sed -n '1p' /tmp/badging.txt)"
+          echo "$first"
+          [[ "$first" == *"name='com.maxrave.simpmusic'"* ]]
+          [[ "$first" == *"versionCode='59'"* ]]
+      - name: Upload unsigned build solely for release preparation
+        uses: actions/upload-artifact@v4
+        with:
+          name: RishiFy-v0.5-UNSIGNED-DO-NOT-INSTALL
+          path: androidApp/build/outputs/apk/release/androidApp-arm64-v8a-release-unsigned.apk
+          if-no-files-found: error
