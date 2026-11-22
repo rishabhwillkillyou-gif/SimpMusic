@@ -235,6 +235,12 @@ import simpmusic.composeapp.generated.resources.now_playing_upper
 import simpmusic.composeapp.generated.resources.ok
 import simpmusic.composeapp.generated.resources.pitch
 import simpmusic.composeapp.generated.resources.play_next
+import simpmusic.composeapp.generated.resources.refresh_radio
+import simpmusic.composeapp.generated.resources.refreshing_radio
+import simpmusic.composeapp.generated.resources.radio_refreshed
+import simpmusic.composeapp.generated.resources.radio_refresh_failed
+import simpmusic.composeapp.generated.resources.queue_play_next_done
+import simpmusic.composeapp.generated.resources.queue_play_next_failed
 import simpmusic.composeapp.generated.resources.playback_speed
 import simpmusic.composeapp.generated.resources.playback_speed_pitch
 import simpmusic.composeapp.generated.resources.playback_speed_pitch_disabled
@@ -965,6 +971,8 @@ fun QueueBottomSheet(
         }
     }
     val endlessQueueEnable by dataStoreManager.endlessQueue.map { it == DataStoreManager.TRUE }.collectAsState(false)
+    val queueControls by musicServiceHandler.controlState.collectAsStateWithLifecycle()
+    var radioRefreshing by remember { mutableStateOf(false) }
 
     val shouldLoadMore =
         remember {
@@ -1139,6 +1147,36 @@ fun QueueBottomSheet(
                         Spacer(modifier = Modifier.width(10.dp))
                     }
                 }
+                if (musicServiceHandler.supportsRadioQueueControls && endlessQueueEnable) {
+                    TextButton(
+                        enabled = !radioRefreshing &&
+                            !queueControls.isShuffle &&
+                            loadMoreState == QueueData.StateSource.STATE_INITIALIZED &&
+                            musicServiceHandler.currentOrderIndex() in queue.indices,
+                        onClick = {
+                            if (!radioRefreshing) {
+                                radioRefreshing = true
+                                coroutineScope.launch {
+                                    try {
+                                        val success = musicServiceHandler.refreshRadio()
+                                        showToast(
+                                            getString(if (success) Res.string.radio_refreshed else Res.string.radio_refresh_failed),
+                                            ToastGravity.Bottom,
+                                        )
+                                    } finally {
+                                        radioRefreshing = false
+                                    }
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    ) {
+                        Text(
+                            text = stringResource(if (radioRefreshing) Res.string.refreshing_radio else Res.string.refresh_radio),
+                            style = typo().labelSmall,
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(10.dp))
                 LazyColumn(
                     horizontalAlignment = Alignment.Start,
@@ -1253,6 +1291,9 @@ fun QueueItemBottomSheet(
     musicServiceHandler: MediaPlayerHandler = koinInject<MediaPlayerHandler>(),
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val liveQueue by musicServiceHandler.queueData.collectAsStateWithLifecycle()
+    val selectedVideoId = remember(index) { musicServiceHandler.queueData.value?.data?.listTracks?.getOrNull(index)?.videoId }
+    val nowPlaying by musicServiceHandler.nowPlaying.collectAsStateWithLifecycle()
     val modelBottomSheetState =
         rememberModalBottomSheetState(
             skipPartiallyExpanded = true,
@@ -1304,6 +1345,38 @@ fun QueueItemBottomSheet(
                 ) {}
                 Spacer(modifier = Modifier.height(5.dp))
                 LazyColumn {
+                    if (musicServiceHandler.supportsRadioQueueControls &&
+                        selectedVideoId != null &&
+                        nowPlaying != null &&
+                        liveQueue?.data?.listTracks?.getOrNull(index)?.videoId == selectedVideoId &&
+                        musicServiceHandler.currentOrderIndex() != index &&
+                        liveQueue?.queueState == QueueData.StateSource.STATE_INITIALIZED
+                    ) {
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().clickable {
+                                    coroutineScope.launch {
+                                        val result = musicServiceHandler.moveQueuedTrackNext(index, selectedVideoId)
+                                        showToast(
+                                            getString(if (result) Res.string.queue_play_next_done else Res.string.queue_play_next_failed),
+                                            ToastGravity.Bottom,
+                                        )
+                                        modelBottomSheetState.hide()
+                                        onDismiss()
+                                    }
+                                }.padding(20.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Image(
+                                    imageVector = SimpIcons.PlayCircle,
+                                    contentDescription = null,
+                                    colorFilter = ColorFilter.tint(rememberSurfaceDarkColors().content),
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(text = stringResource(Res.string.play_next), style = typo().labelSmall)
+                            }
+                        }
+                    }
                     val canMoveUp =
                         index > 0 &&
                             index < (

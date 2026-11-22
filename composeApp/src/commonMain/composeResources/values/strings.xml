@@ -494,6 +494,12 @@
     <string name="lyrics_provider_lrc">Lyrics provided by LRCLIB</string>
     <string name="sync_first">Sync this playlist to YouTube Music first</string>
     <string name="endless_queue">Endless queue</string>
+    <string name="refresh_radio">Refresh Radio</string>
+    <string name="refreshing_radio">Refreshing radio…</string>
+    <string name="radio_refreshed">Radio refreshed from current song</string>
+    <string name="radio_refresh_failed">Radio could not be refreshed. Please try again.</string>
+    <string name="queue_play_next_done">Song will play next</string>
+    <string name="queue_play_next_failed">Queue changed. Please try again.</string>
     <string name="continue_playing">Continue Playing</string>
     <string name="continue_playing_endless_subtitle">Automatically adds similar songs when the queue ends</string>
     <string name="lyrics_sync_provider_footer" translatable="false">%1$s • %2$s</string>

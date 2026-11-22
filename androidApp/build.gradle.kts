@@ -23,13 +23,8 @@ android {
         applicationId = "com.maxrave.simpmusic"
         minSdk = 26
         targetSdk = 36
-        versionCode =
-            libs.versions.version.code
-                .get()
-                .toInt()
-        versionName =
-            libs.versions.version.name
-                .get()
+        versionCode = libs.versions.version.code.get().toInt() + 1
+        versionName = "0.5"
         vectorDrawables.useSupportLibrary = true
         multiDexEnabled = true
 
