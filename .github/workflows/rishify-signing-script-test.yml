@@ -1,0 +1,42 @@
+name: RishiFy Signing Script Self Test
+
+on:
+  push:
+    branches: [personal-music-v0.5-mobile]
+    paths:
+      - 'scripts/rishify/New-RishiFySigningKey.ps1'
+      - '.github/workflows/rishify-signing-script-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: microsoft
+      - name: Generate disposable TEST key to verify local script only
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $folder = Join-Path $env:RUNNER_TEMP 'RishiFy-Signing-Test'
+          & .\scripts\rishify\New-RishiFySigningKey.ps1 -Destination $folder
+          $p12 = Join-Path $folder 'rishify-permanent-release.p12'
+          $recovery = Join-Path $folder 'RishiFy-PRIVATE-GitHub-Secrets.txt'
+          if (-not (Test-Path $p12) -or -not (Test-Path $recovery)) { throw 'Script did not produce both files' }
+          $contents = [System.IO.File]::ReadAllLines($recovery)
+          foreach ($name in @('RISHIFY_KEYSTORE_B64','RISHIFY_KEYSTORE_PASSWORD','RISHIFY_KEY_ALIAS','RISHIFY_KEY_PASSWORD','RISHIFY_CERT_SHA256')) {
+              if (-not @($contents | Where-Object { $_.StartsWith("$name=") }).Count) { throw "Missing secret: $name" }
+          }
+          $password = ($contents | Where-Object { $_.StartsWith('RISHIFY_KEYSTORE_PASSWORD=') })[0].Split('=',2)[1]
+          $env:RISHIFY_TEST_PASS = $password
+          & keytool -list -keystore $p12 -storetype PKCS12 -alias rishify -storepass:env RISHIFY_TEST_PASS | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Generated keystore could not be opened with saved password' }
+          Remove-Item Env:RISHIFY_TEST_PASS -ErrorAction SilentlyContinue
+          Remove-Item $folder -Recurse -Force
+          Write-Output 'Signing generator test succeeded; ephemeral test key deleted and never uploaded.'
