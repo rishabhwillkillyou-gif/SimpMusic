@@ -1,0 +1,132 @@
+name: RishiFy Permanent Signed APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sign-release:
+    if: github.ref == 'refs/heads/personal-music-v0.5-mobile'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout RishiFy and pinned core
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: microsoft
+          cache: gradle
+
+      - name: Verify permanent signing secrets are configured
+        shell: bash
+        env:
+          KEY_B64: ${{ secrets.RISHIFY_KEYSTORE_B64 }}
+          STOREPASS: ${{ secrets.RISHIFY_KEYSTORE_PASSWORD }}
+          ALIAS: ${{ secrets.RISHIFY_KEY_ALIAS }}
+          KEYPASS: ${{ secrets.RISHIFY_KEY_PASSWORD }}
+          CERT_SHA256: ${{ secrets.RISHIFY_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$KEY_B64" || -z "$STOREPASS" || -z "$ALIAS" || -z "$KEYPASS" || -z "$CERT_SHA256" ]]; then
+            echo "::error::Permanent signing secrets missing. Use scripts/rishify/New-RishiFySigningKey.ps1 on your Windows PC and add all five GitHub Actions secrets."
+            exit 1
+          fi
+          echo "Permanent signing prerequisites detected. No private signing data will be printed."
+
+      - name: Apply original RishiFy visual branding
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode branding/rishify_icon.b64 > /tmp/rishify_icon.png
+          cp /tmp/rishify_icon.png androidApp/src/main/res/drawable/app_icon.png
+          cp /tmp/rishify_icon.png composeApp/src/commonMain/composeResources/drawable/app_icon.png
+          cp /tmp/rishify_icon.png composeApp/src/commonMain/composeResources/drawable/circle_app_icon.png
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            d="androidApp/src/main/res/mipmap-$density"
+            rm -f "$d/ic_launcher.webp" "$d/ic_launcher_round.webp" "$d/ic_launcher_foreground.webp"
+            cp /tmp/rishify_icon.png "$d/ic_launcher.png"
+            cp /tmp/rishify_icon.png "$d/ic_launcher_round.png"
+            cp /tmp/rishify_icon.png "$d/ic_launcher_foreground.png"
+          done
+
+      - name: Configure personal release build
+        shell: bash
+        run: |
+          printf '\nisFullBuild=true\n' >> gradle.properties
+          printf 'SENTRY_DSN=\nSENTRY_AUTH_TOKEN=\nLASTFM_API_KEY=\nLASTFM_SECRET=\n' > local.properties
+
+      - name: Compile release without temporary debug signing
+        run: |
+          ./gradlew exportLibraryDefinitions
+          ./gradlew :androidApp:assembleRelease --stacktrace
+
+      - name: Sign once using user-owned permanent keystore
+        shell: bash
+        env:
+          RISHIFY_KEYSTORE_B64: ${{ secrets.RISHIFY_KEYSTORE_B64 }}
+          RISHIFY_KEYSTORE_PASSWORD: ${{ secrets.RISHIFY_KEYSTORE_PASSWORD }}
+          RISHIFY_KEY_ALIAS: ${{ secrets.RISHIFY_KEY_ALIAS }}
+          RISHIFY_KEY_PASSWORD: ${{ secrets.RISHIFY_KEY_PASSWORD }}
+          RISHIFY_CERT_SHA256: ${{ secrets.RISHIFY_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          SIGN_DIR="$(mktemp -d)"
+          trap 'rm -rf "$SIGN_DIR"' EXIT
+          printf '%s' "$RISHIFY_KEYSTORE_B64" | base64 --decode > "$SIGN_DIR/rishify.p12"
+          test -s "$SIGN_DIR/rishify.p12"
+          keytool -list -keystore "$SIGN_DIR/rishify.p12" -storetype PKCS12 \
+            -alias "$RISHIFY_KEY_ALIAS" -storepass:env RISHIFY_KEYSTORE_PASSWORD >/dev/null
+          SDK_BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          APKSIGNER="$SDK_BUILD_TOOLS/apksigner"
+          ZIPALIGN="$SDK_BUILD_TOOLS/zipalign"
+          AAPT="$SDK_BUILD_TOOLS/aapt"
+          SOURCE_APK="androidApp/build/outputs/apk/release/androidApp-arm64-v8a-release-unsigned.apk"
+          if [[ ! -f "$SOURCE_APK" ]]; then
+            echo "::error::Expected unsigned arm64 release APK is missing."
+            find androidApp/build/outputs/apk/release -type f -name '*.apk' -print || true
+            exit 1
+          fi
+          mkdir -p dist
+          "$ZIPALIGN" -p -f 4 "$SOURCE_APK" "$SIGN_DIR/aligned.apk"
+          "$APKSIGNER" sign \
+            --ks "$SIGN_DIR/rishify.p12" --ks-type PKCS12 \
+            --ks-key-alias "$RISHIFY_KEY_ALIAS" \
+            --ks-pass env:RISHIFY_KEYSTORE_PASSWORD \
+            --key-pass env:RISHIFY_KEY_PASSWORD \
+            --out dist/RishiFy-v0.5-ARM64-release.apk "$SIGN_DIR/aligned.apk"
+          "$APKSIGNER" verify --verbose --print-certs dist/RishiFy-v0.5-ARM64-release.apk > "$SIGN_DIR/certs.txt"
+          actual="$(awk '/certificate SHA-256 digest:/ {print $NF; exit}' "$SIGN_DIR/certs.txt" | tr -d ': ' | tr '[:upper:]' '[:lower:]')"
+          expected="$(printf '%s' "$RISHIFY_CERT_SHA256" | tr -d '[:space:]: ' | tr '[:upper:]' '[:lower:]')"
+          if [[ -z "$actual" || "$actual" != "$expected" ]]; then
+            echo "::error::Certificate does not match permanently pinned fingerprint. Stopping release."
+            exit 1
+          fi
+          "$AAPT" dump badging dist/RishiFy-v0.5-ARM64-release.apk > "$SIGN_DIR/badging.txt"
+          package="$(sed -n "1s/.*package: name='\([^']*\)'.*/\1/p" "$SIGN_DIR/badging.txt")"
+          version="$(sed -n "1s/.*versionCode='\([0-9]*\)'.*/\1/p" "$SIGN_DIR/badging.txt")"
+          if [[ "$package" != "com.maxrave.simpmusic" || "$version" != "59" ]]; then
+            echo "::error::Unexpected package or version; expected com.maxrave.simpmusic version code 59."
+            exit 1
+          fi
+          printf 'Application: %s\nVersion code: %s\nCertificate SHA-256: %s\n' "$package" "$version" "$actual" > dist/RishiFy-v0.5-public-signing-metadata.txt
+          echo "Signed release verified: $package version $version"
+          echo "Public certificate fingerprint: $actual"
+          echo "Fresh installation alongside the old .dev package; do not remove v0.4 automatically."
+
+      - name: Upload verified permanent-key release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RishiFy-v0.5-PERMANENT-SIGNED-ARM64
+          path: |
+            dist/RishiFy-v0.5-ARM64-release.apk
+            dist/RishiFy-v0.5-public-signing-metadata.txt
+          if-no-files-found: error
+          retention-days: 90
