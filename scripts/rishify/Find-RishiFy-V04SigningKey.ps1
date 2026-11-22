@@ -30,7 +30,7 @@ if ($found.Count -eq 0) {
     Write-Warning "No key files found in the searched locations. Original October key may only have existed on GitHub's temporary runner."
     exit 0
 }
-$matches = @()
+$verifiedMatches = @()
 foreach ($file in ($found.Keys | Sort-Object)) {
     Write-Host "Candidate: $file"
     if ($file -match '(?i)debug\.keystore$' -and $keytool) {
@@ -40,14 +40,14 @@ foreach ($file in ($found.Keys | Sort-Object)) {
             $fingerprint = [regex]::Match($details, 'SHA256:\s*([0-9a-fA-F:]+)')
             if ($fingerprint.Success) {
                 $sha = $fingerprint.Groups[1].Value.Replace(":", "").ToLowerInvariant()
-                if ($sha -eq $Expected) { $matches += $file }
+                if ($sha -eq $Expected) { $verifiedMatches += $file }
             }
         } catch { } finally { Remove-Item Env:RISHIFY_SCAN_DEBUG_PASS -ErrorAction SilentlyContinue }
     }
 }
-if ($matches.Count -gt 0) {
+if ($verifiedMatches.Count -gt 0) {
     Write-Host "MATCH! The old v0.4 certificate was found:" -ForegroundColor Green
-    $matches | ForEach-Object { Write-Host $_ }
+    $verifiedMatches | ForEach-Object { Write-Host $_ }
     Write-Warning "Keep the matching private key safe. Do not create a replacement key until this is reviewed."
 } else {
     Write-Warning "No automatically verified match found. Other candidates may require their original passwords."
