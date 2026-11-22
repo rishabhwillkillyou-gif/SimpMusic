@@ -1,0 +1,45 @@
+name: RishiFy signing diagnostic only
+
+on:
+  push:
+    branches:
+      - rishify-v05-signing-diagnostics
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  inspect-v04:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect archived v0.4 APK metadata and signer
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/11881166919/zip" \
+            -o /tmp/v04.zip
+          mkdir -p /tmp/old
+          unzip -q /tmp/v04.zip -d /tmp/old
+          echo "Available APKs"
+          find /tmp/old -name '*.apk' -type f -print
+          APK=/tmp/old/androidApp-arm64-v8a-debug.apk
+          test -f "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)"
+          echo "Using apksigner: $APKSIGNER"
+          echo "Using aapt: $AAPT"
+          echo "APK size: $(stat -c '%s' "$APK")"
+          echo "Signature check begins"
+          set +e
+          "$APKSIGNER" verify --verbose --print-certs "$APK" 2>&1
+          echo "APKSIGNER_EXIT=$?"
+          "$AAPT" dump badging "$APK" 2>&1 | sed -n '1,5p'
+          echo "AAPT_PIPE_EXIT=${PIPESTATUS[0]}"
+          unzip -Z -1 "$APK" | grep -E '^META-INF/.*(RSA|SF|DSA)$' | head -10
+          echo "ZIP_LIST_EXIT=${PIPESTATUS[0]}"
