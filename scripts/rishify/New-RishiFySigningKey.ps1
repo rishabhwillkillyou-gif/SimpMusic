@@ -58,7 +58,7 @@ try {
         "# Store this file and the .p12 keystore in a secure, offline backup.",
         "# Future builds MUST keep the same key, application ID and increasing version code."
     )
-    [System.IO.File]::WriteAllLines($Recovery, $lines, (New-Object System.Text.UTF8Encoding($false)))
+    [System.IO.File]::WriteAllLines($Recovery, $lines, ([System.Text.UTF8Encoding]::new($false)))
     Write-Host ""
     Write-Host "SUCCESS: Permanent RishiFy signing key created." -ForegroundColor Green
     Write-Host "Keystore : $Keystore"
