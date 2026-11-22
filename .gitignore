@@ -46,3 +46,11 @@ sentry.properties
 /desktopApp/generated.conveyor.conf
 # Conveyor output directory
 /output/
+
+# Never commit RishiFy private signing material
+*.jks
+*.keystore
+*.p12
+*.pfx
+*PRIVATE*GitHub*Secrets*
+*.signing-secret*
