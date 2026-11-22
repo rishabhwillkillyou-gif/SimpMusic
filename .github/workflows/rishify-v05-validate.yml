@@ -76,8 +76,10 @@ jobs:
           AAPT="$(find "$ANDROID_HOME/build-tools" -name aapt | sort -V | tail -1)"
           "$APKSIGNER" verify --print-certs "$OLD_APK" > /tmp/v04-signers.txt
           "$APKSIGNER" verify --print-certs "$NEW_APK" > /tmp/v05-signers.txt
-          oldcert="$(grep 'Signer #1 certificate SHA-256 digest' /tmp/v04-signers.txt | cut -d: -f2- | tr -d '[:space:]')"
-          newcert="$(grep 'Signer #1 certificate SHA-256 digest' /tmp/v05-signers.txt | cut -d: -f2- | tr -d '[:space:]')"
+          # apksigner 37 reports "V2 Signer: certificate SHA-256 digest" for these APKs.
+          # Match the certificate label rather than the version-specific signer prefix.
+          oldcert="$(awk '/certificate SHA-256 digest:/ {print $NF; exit}' /tmp/v04-signers.txt)"
+          newcert="$(awk '/certificate SHA-256 digest:/ {print $NF; exit}' /tmp/v05-signers.txt)"
           "$AAPT" dump badging "$OLD_APK" > /tmp/v04-badging.txt
           "$AAPT" dump badging "$NEW_APK" > /tmp/v05-badging.txt
           oldbadging="$(sed -n '1p' /tmp/v04-badging.txt)"
