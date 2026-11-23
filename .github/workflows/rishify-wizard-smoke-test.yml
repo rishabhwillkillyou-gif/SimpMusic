@@ -1,0 +1,30 @@
+name: RishiFy Windows Wizard Syntax Test
+
+on:
+  push:
+    branches: [personal-music-v0.5-mobile]
+    paths:
+      - 'scripts/rishify/Setup-RishiFy.ps1'
+      - '.github/workflows/rishify-wizard-smoke-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-wizard:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Windows PowerShell syntax without executing installer
+        shell: powershell
+        run: |
+          $file = (Resolve-Path .\scripts\rishify\Setup-RishiFy.ps1).Path
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile($file, [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List
+            throw "RishiFy setup wizard PowerShell syntax failed"
+          }
+          Write-Host "PowerShell setup wizard syntax passed"
