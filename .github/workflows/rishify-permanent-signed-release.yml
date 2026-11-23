@@ -65,7 +65,8 @@ jobs:
       - name: Compile release without temporary debug signing
         run: |
           ./gradlew exportLibraryDefinitions
-          ./gradlew :androidApp:assembleRelease --stacktrace
+          # Personal RishiFy builds have no Sentry credentials; do not upload ProGuard mappings.
+          ./gradlew :androidApp:assembleRelease --stacktrace -x :androidApp:uploadSentryProguardMappingsRelease
 
       - name: Sign once using user-owned permanent keystore
         shell: bash
