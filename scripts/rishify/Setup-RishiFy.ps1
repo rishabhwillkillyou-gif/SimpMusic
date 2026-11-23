@@ -50,31 +50,30 @@ try {
         Write-Host "An existing permanent key and recovery file were found in $signFolder."
         Write-Host 'They will be reused. The key will NEVER be overwritten.' -ForegroundColor Green
     } else {
-        # Windows does not necessarily have a JDK. Ensure keytool is available
-        # in this process and its child PowerShell without requiring a restart.
+        # Reuse an existing JDK or offer to install Microsoft OpenJDK 21.
+        # Put keytool on PATH for the child PowerShell without requiring a restart.
         function Find-RishiFyKeytool {
             $cmd = Get-Command keytool.exe -ErrorAction SilentlyContinue | Select-Object -First 1
             if ($cmd -and (Test-Path $cmd.Source)) { return $cmd.Source }
-            $roots = @()
-            if ($env:JAVA_HOME) { $roots += (Join-Path $env:JAVA_HOME 'bin\keytool.exe') }
-            $roots += @(
+            $candidates = @()
+            if ($env:JAVA_HOME) { $candidates += (Join-Path $env:JAVA_HOME 'bin\keytool.exe') }
+            $candidates += @(
                 "$env:ProgramFiles\Microsoft\jdk-21*\bin\keytool.exe",
                 "$env:ProgramFiles\Eclipse Adoptium\jdk-21*\bin\keytool.exe",
                 "$env:ProgramFiles\Java\jdk-21*\bin\keytool.exe",
                 "$env:ProgramFiles\Android\Android Studio\jbr\bin\keytool.exe"
             )
-            foreach ($candidate in $roots) {
-                $found = Get-Item -Path $candidate -ErrorAction SilentlyContinue | Select-Object -First 1
-                if ($found -and (Test-Path $found.FullName)) { return $found.FullName }
+            foreach ($candidate in $candidates) {
+                $item = Get-Item -Path $candidate -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($item -and (Test-Path $item.FullName)) { return $item.FullName }
             }
             return $null
         }
-
         $keytool = Find-RishiFyKeytool
         if (-not $keytool) {
-            Write-Host 'Java JDK is missing. This one-time dependency is needed to create our permanent Android signing key.' -ForegroundColor Yellow
-            $javaConsent = Read-Host 'Install Microsoft OpenJDK 21 automatically using Windows Package Manager? (Y/n)'
-            if ($javaConsent -notmatch '^(|y|yes) { throw 'Private recovery file not found. Do not proceed with signing.' }
+            Write-Host 'Microsoft OpenJDK 21 is required for the permanent signing key.' -ForegroundColor Yellow
+            $approval = Read-Host 'Install Microsoft OpenJDK 21 with winget? (Y/n)'
+            if ($approval -notmatch '^(|y|yes) { throw 'Private recovery file not found. Do not proceed with signing.' }
 
     Write-Host ''
     Write-Host 'Step 3/3: Safely register the signing key in GitHub Actions' -ForegroundColor Cyan
@@ -151,27 +150,25 @@ try {
     Write-Host 'Setup finished. Press Enter to close if this window was launched separately.'
 }
 ) {
-                throw 'Java installation declined. No signing key was created and v0.4 remains unchanged.'
+                throw 'Java installation was declined. RishiFy v0.4 is unchanged.'
             }
             $winget = Get-Command winget.exe -ErrorAction SilentlyContinue | Select-Object -First 1
             if (-not $winget) {
-                throw 'Windows Package Manager (winget) is not available. Install Microsoft OpenJDK 21 manually, then rerun this wizard.'
+                throw 'Windows Package Manager was not found. Please install JDK 21 and rerun the setup.'
             }
-            Write-Host 'Installing official Microsoft OpenJDK 21. Approve the Windows administrator prompt if shown.'
             & $winget.Source install --id Microsoft.OpenJDK.21 --exact --source winget --accept-package-agreements --accept-source-agreements
-            $installExit = $LASTEXITCODE
-            if ($installExit -ne 0) {
-                Write-Warning "OpenJDK installer returned exit code $installExit. Checking whether Java is now available."
+            if ($LASTEXITCODE -ne 0) {
+                Write-Warning "The Java installer returned exit code $LASTEXITCODE. Checking keytool anyway."
             }
             $keytool = Find-RishiFyKeytool
             if (-not $keytool) {
-                throw 'Java keytool is still not available. Complete the JDK 21 installation and rerun the same wizard; your existing app and any signing files are safe.'
+                throw 'Java installation finished but keytool is not yet discoverable. Reopen PowerShell and rerun setup; no keys were changed.'
             }
         }
-        $jdkBin = Split-Path -Parent $keytool
-        $env:JAVA_HOME = Split-Path -Parent $jdkBin
-        $env:PATH = "$jdkBin;$env:PATH"
-        Write-Host "Java signing tool found: $keytool" -ForegroundColor Green
+        $javaBin = Split-Path -Parent $keytool
+        $env:JAVA_HOME = Split-Path -Parent $javaBin
+        $env:Path = "$javaBin;$env:Path"
+        Write-Host 'Java keytool found. Continuing signing key setup.' -ForegroundColor Green
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $newKeyScript
         if ($LASTEXITCODE -ne 0) {
             throw 'Key generation did not complete. Resolve the displayed error without deleting any existing signing files.'
