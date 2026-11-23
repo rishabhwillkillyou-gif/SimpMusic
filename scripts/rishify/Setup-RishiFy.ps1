@@ -50,6 +50,128 @@ try {
         Write-Host "An existing permanent key and recovery file were found in $signFolder."
         Write-Host 'They will be reused. The key will NEVER be overwritten.' -ForegroundColor Green
     } else {
+        # Windows does not necessarily have a JDK. Ensure keytool is available
+        # in this process and its child PowerShell without requiring a restart.
+        function Find-RishiFyKeytool {
+            $cmd = Get-Command keytool.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($cmd -and (Test-Path $cmd.Source)) { return $cmd.Source }
+            $roots = @()
+            if ($env:JAVA_HOME) { $roots += (Join-Path $env:JAVA_HOME 'bin\keytool.exe') }
+            $roots += @(
+                "$env:ProgramFiles\Microsoft\jdk-21*\bin\keytool.exe",
+                "$env:ProgramFiles\Eclipse Adoptium\jdk-21*\bin\keytool.exe",
+                "$env:ProgramFiles\Java\jdk-21*\bin\keytool.exe",
+                "$env:ProgramFiles\Android\Android Studio\jbr\bin\keytool.exe"
+            )
+            foreach ($candidate in $roots) {
+                $found = Get-Item -Path $candidate -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($found -and (Test-Path $found.FullName)) { return $found.FullName }
+            }
+            return $null
+        }
+
+        $keytool = Find-RishiFyKeytool
+        if (-not $keytool) {
+            Write-Host 'Java JDK is missing. This one-time dependency is needed to create our permanent Android signing key.' -ForegroundColor Yellow
+            $javaConsent = Read-Host 'Install Microsoft OpenJDK 21 automatically using Windows Package Manager? (Y/n)'
+            if ($javaConsent -notmatch '^(|y|yes) { throw 'Private recovery file not found. Do not proceed with signing.' }
+
+    Write-Host ''
+    Write-Host 'Step 3/3: Safely register the signing key in GitHub Actions' -ForegroundColor Cyan
+    $ghCommand = Get-Command gh.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+    $ghExe = if ($ghCommand) { $ghCommand.Source } else { $null }
+    if (-not $ghExe) {
+        $possibleGh = Join-Path $env:ProgramFiles 'GitHub CLI\gh.exe'
+        if (Test-Path $possibleGh) { $ghExe = $possibleGh }
+    }
+    if (-not $ghExe) {
+        $install = Read-Host 'Install the official GitHub CLI to upload the signing secrets automatically? (Y/n)'
+        if ($install -match '^(|y|yes)$') {
+            $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
+            if ($winget) {
+                & winget install --id GitHub.cli --exact --source winget --accept-package-agreements --accept-source-agreements
+                $possibleGh = Join-Path $env:ProgramFiles 'GitHub CLI\gh.exe'
+                if (Test-Path $possibleGh) { $ghExe = $possibleGh }
+            } else {
+                Write-Warning 'Windows Package Manager was not found. GitHub CLI was not installed.'
+            }
+        }
+    }
+    if (-not $ghExe) {
+        Write-Host ''
+        Write-Host 'Your permanent key has been generated and saved on your PC.' -ForegroundColor Green
+        Write-Host "Private recovery file: $secretFile"
+        Write-Host "Open https://github.com/$repo/settings/secrets/actions"
+        Write-Host 'Create the five Repository secrets listed in that PRIVATE file.'
+        Write-Host 'Then use the RishiFy Permanent Signed APK workflow.'
+        return
+    }
+
+    # gh prints unauthenticated status on stderr; do not let strict PowerShell
+    # error handling abort before the normal browser login prompt.
+    $previousErrorPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & $ghExe auth status --hostname github.com *> $null
+        $authExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorPreference
+    }
+    if ($authExitCode -ne 0) {
+        Write-Host 'GitHub will open a browser to authorize your account. No key material is shared until authorization succeeds.'
+        & $ghExe auth login --hostname github.com --git-protocol https --web
+        if ($LASTEXITCODE -ne 0) { throw 'GitHub login was not completed. The local signing key remains safe.' }
+    }
+    Write-Host 'Registering all five GitHub Actions secrets without displaying their values...'
+    & $ghExe secret set --repo $repo --env-file $secretFile
+    if ($LASTEXITCODE -ne 0) { throw 'Could not register the signing secrets. The local backup is intact.' }
+    Write-Host 'Permanent signing secrets configured successfully!' -ForegroundColor Green
+
+    $build = Read-Host 'Start the RishiFy v0.5 signing workflow now? (Y/n)'
+    if ($build -match '^(|y|yes)$') {
+        & $ghExe workflow run rishify-permanent-signed-release.yml --repo $repo --ref personal-music-v0.5-mobile
+        if ($LASTEXITCODE -ne 0) { throw 'Could not start the workflow; open the Actions link to start it manually.' }
+        Start-Process $workflowUrl
+        Write-Host 'The release workflow was requested. Its Actions page is open in your browser.'
+        Write-Host 'Download the APK only from a successful, verified workflow run.'
+    } else {
+        Write-Host "You can run the build later at $workflowUrl"
+    }
+    Write-Host ''
+    Write-Warning "Back up the .p12 keystore AND private recovery file securely, outside this PC. Never share either file in chat."
+    Write-Host 'Do not uninstall v0.4; it has a different application ID, and v0.5 can be installed beside it.'
+} catch {
+    Write-Host ''
+    Write-Host ('Setup stopped: ' + $_.Exception.Message) -ForegroundColor Red
+    Write-Host 'Your v0.4 installation has NOT been uninstalled or modified.'
+    Write-Host "If already generated, preserve signing files in: $signFolder"
+} finally {
+    Remove-Item -LiteralPath $temp -Force -Recurse -ErrorAction SilentlyContinue
+    Write-Host ''
+    Write-Host 'Setup finished. Press Enter to close if this window was launched separately.'
+}
+) {
+                throw 'Java installation declined. No signing key was created and v0.4 remains unchanged.'
+            }
+            $winget = Get-Command winget.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $winget) {
+                throw 'Windows Package Manager (winget) is not available. Install Microsoft OpenJDK 21 manually, then rerun this wizard.'
+            }
+            Write-Host 'Installing official Microsoft OpenJDK 21. Approve the Windows administrator prompt if shown.'
+            & $winget.Source install --id Microsoft.OpenJDK.21 --exact --source winget --accept-package-agreements --accept-source-agreements
+            $installExit = $LASTEXITCODE
+            if ($installExit -ne 0) {
+                Write-Warning "OpenJDK installer returned exit code $installExit. Checking whether Java is now available."
+            }
+            $keytool = Find-RishiFyKeytool
+            if (-not $keytool) {
+                throw 'Java keytool is still not available. Complete the JDK 21 installation and rerun the same wizard; your existing app and any signing files are safe.'
+            }
+        }
+        $jdkBin = Split-Path -Parent $keytool
+        $env:JAVA_HOME = Split-Path -Parent $jdkBin
+        $env:PATH = "$jdkBin;$env:PATH"
+        Write-Host "Java signing tool found: $keytool" -ForegroundColor Green
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $newKeyScript
         if ($LASTEXITCODE -ne 0) {
             throw 'Key generation did not complete. Resolve the displayed error without deleting any existing signing files.'
