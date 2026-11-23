@@ -50,7 +50,8 @@ jobs:
       - name: Build release APK
         run: |
           ./gradlew exportLibraryDefinitions
-          ./gradlew :androidApp:assembleRelease --stacktrace
+          # Personal RishiFy builds have no Sentry credentials; do not upload ProGuard mappings.
+          ./gradlew :androidApp:assembleRelease --stacktrace -x :androidApp:uploadSentryProguardMappingsRelease
       - name: Validate unsigned release manifest
         shell: bash
         run: |
