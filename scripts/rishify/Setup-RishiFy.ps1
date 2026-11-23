@@ -88,8 +88,17 @@ try {
         return
     }
 
-    & $ghExe auth status --hostname github.com *> $null
-    if ($LASTEXITCODE -ne 0) {
+    # gh prints unauthenticated status on stderr; do not let strict PowerShell
+    # error handling abort before the normal browser login prompt.
+    $previousErrorPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & $ghExe auth status --hostname github.com *> $null
+        $authExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorPreference
+    }
+    if ($authExitCode -ne 0) {
         Write-Host 'GitHub will open a browser to authorize your account. No key material is shared until authorization succeeds.'
         & $ghExe auth login --hostname github.com --git-protocol https --web
         if ($LASTEXITCODE -ne 0) { throw 'GitHub login was not completed. The local signing key remains safe.' }
