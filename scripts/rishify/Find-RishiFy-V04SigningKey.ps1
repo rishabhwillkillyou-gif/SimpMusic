@@ -49,6 +49,7 @@ if ($verifiedMatches.Count -gt 0) {
     Write-Host "MATCH! The old v0.4 certificate was found:" -ForegroundColor Green
     $verifiedMatches | ForEach-Object { Write-Host $_ }
     Write-Warning "Keep the matching private key safe. Do not create a replacement key until this is reviewed."
+    exit 42  # Verified match; parent setup launcher must stop rather than generate a new key.
 } else {
     Write-Warning "No automatically verified match found. Other candidates may require their original passwords."
     Write-Host "Expected v0.4 certificate SHA-256: $Expected"
