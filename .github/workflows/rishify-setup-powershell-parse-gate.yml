@@ -1,0 +1,31 @@
+name: RishiFy Setup PowerShell Parse Gate
+
+on:
+  push:
+    branches: [personal-music-v0.5-mobile]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse setup in Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $f = (Resolve-Path '.\scripts\rishify\Setup-RishiFy.ps1').Path
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile($f, [ref]$tokens, [ref]$parseErrors) | Out-Null
+          if (@($parseErrors).Count -gt 0) {
+            $parseErrors | Format-List | Out-String | Write-Host
+            throw 'RishiFy setup script contains PowerShell syntax errors.'
+          }
+          $lines = @(Get-Content $f)
+          if (@($lines | Where-Object { $_ -match 'Step 3/3: Safely register' }).Count -ne 1) {
+            throw 'Duplicate or missing setup step detected'
+          }
+          Write-Host 'RishiFy setup syntax verified successfully.'
